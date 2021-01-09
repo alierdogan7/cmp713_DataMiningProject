@@ -34,13 +34,15 @@ print(suicide_rates)
 summary(suicide_rates)
 ```
 
-## Filling missing HDI columns using another dataset
+# Data Preprocessing
 
 Since our dataset consists of 24k rows but 2/3 of HDI index columns are missing (~19k rows) we should fill the missing columns using an additional dataset taken from UN Development Programme *(see: http://hdr.undp.org/en/indicators/137506#)*
+*(Also see how HDI calculated: http://hdr.undp.org/sites/default/files/hdr2018_technical_notes.pdf )*
 
 ```{r, warning=FALSE}
 Human_Development_Index_HDI_ <- read_csv("Human Development Index (HDI).csv",
-                                         col_types = cols(X4 = col_skip(), X6 = col_skip(),
+                                           col_types = cols(`1990` = col_double(), `1991` = col_double(), `1992` = col_double(), `1993` = col_double(), `1994` = col_double(), `1995` = col_double(), `1996` = col_double(), `1997` = col_double(), `1998` = col_double(), `1999` = col_double(), `2000` = col_double(), `2001` = col_double(), `2002` = col_double(), `2003` = col_double(), `2004` = col_double(), `2005` = col_double(), `2006` = col_double(), `2007` = col_double(), `2008` = col_double(), `2009` = col_double(), `2010` = col_double(), `2011` = col_double(), `2012` = col_double(), `2013` = col_double(), `2014` = col_double(), `2015` = col_double(), `2016` = col_double(), `2017` = col_double(), `2018` = col_double(), `2019` = col_double(),
+                                                          X4 = col_skip(), X6 = col_skip(),
                                                           X8 = col_skip(), X10 = col_skip(),
                                                           X12 = col_skip(), X14 = col_skip(),
                                                           X16 = col_skip(), X18 = col_skip(),
@@ -56,14 +58,58 @@ Human_Development_Index_HDI_ <- read_csv("Human Development Index (HDI).csv",
                                                           X56 = col_skip(), X58 = col_skip(),
                                                           X60 = col_skip(), X62 = col_skip()), skip = 5)
 
-country_HDI <- Human_Development_Index_HDI_[1:189,]
-world_avg_HDI <- Human_Development_Index_HDI_[190:207,]
-
+country_HDI <- Human_Development_Index_HDI_[1:189, 2:32]
+development_avg_HDI <- Human_Development_Index_HDI_[191:194, 2:32]
+development_avg_HDI$Country <- as.factor(development_avg_HDI$Country)
+names(development_avg_HDI)[names(development_avg_HDI) == "Country"] <- "development" # rename column
+levels(development_avg_HDI$development) <- c("high", "low", "medium", "veryHigh")
+world_avg_HDI <- Human_Development_Index_HDI_[206, 3:32]
 ```
 
+HDIs for each country across the years:
 ```{r}
 print(country_HDI)
 ```
+
+HDI cutoff points for development status across each year:
+```{r}
+print(development_avg_HDI)
+```
+
+# Generating "Country Development Status" column 
+
+We are identifying development status of each country for each year.
+
+Since we observe a constant increase in the Human Development Index all over the world as the years pass, we need a metric to indicate that how much developed a country was in a given year, and how much was the HDI index compared to global average.
+
+That's why we use the additional information given by HDI dataset which shows the average HDI values of all countries and continents.
+
+We label each row with development category (i.e. the development category belongs to a country in a specific year)
+
+```{r}
+years <- colnames(country_HDI[, -1])
+country_HDI_development_labels <- country_HDI
+
+# process each year column 
+for(year in years) {
+  tmp_HDIs <- unlist(country_HDI_development_labels[year])
+  tmp_breaks <- development_avg_HDI[3:1, year]
+  #country_HDI_development_labels[year] <- cut(tmp_HDIs, breaks = c(0, tmp_breaks, 1),  labels=development_avg_HDI[, "development"])
+  country_HDI_development_labels[year] <- cut(tmp_HDIs, breaks = c(0, unlist(tmp_breaks), 1), labels = rev(unlist(development_avg_HDI[, "development"])) )
+}
+rm(tmp_HDIs, tmp_breaks. year, years)
+
+country_HDI_development_labels <- gather(country_HDI_development_labels, Year, Development, "1990":"2019")
+country_HDI_development_labels$Year <- as.double(country_HDI_development_labels$Year)
+
+```
+
+Resulting table
+
+```{r}
+print(country_HDI_development_labels)
+```
+
 
 HDI dataset represents each year as a separate column, we need to convert these columns into separate observations using `gather()`
 
@@ -73,9 +119,20 @@ country_HDI_tidy$Year <- as.double(country_HDI_tidy$Year)
 country_HDI_tidy$HDI <- as.double(country_HDI_tidy$HDI)
 country_HDI_tidy <- country_HDI_tidy %>% mutate(Country = ifelse(Country == "Korea (Republic of)", "Republic of Korea", Country),
                                                 Country = ifelse(Country == "Czechia", "Czech Republic", Country))
-country_HDI_tidy$`HDI Rank` <- NULL
+
 print(country_HDI_tidy)
 ```
+
+And we are joining the previously prepared development labels table for each country in each year:
+
+```{r}
+country_HDI_tidy <- country_HDI_tidy %>% left_join(country_HDI_development_labels, by = c("Country", "Year"))
+print(country_HDI_tidy)
+```
+
+
+
+## Filling missing HDI columns using our separate HDI data
 
 Now we can fill in missing NA values of HDI columns, using our tidied HDI dataset. We perform a left-join operation by matching country and year columns, and observe that rows with missing HDI decreased from 19k+ rows to ~4k rows.
 Also, after filling most of HDI cols, we factorize some categorical columns.
@@ -90,6 +147,7 @@ suicide_rates$country <- as.factor(suicide_rates$country)
 suicide_rates$sex <- as.factor(suicide_rates$sex)
 suicide_rates$generation <- as.factor(suicide_rates$generation)
 suicide_rates$`country-year` <- NULL
+names(suicide_rates)[names(suicide_rates) == "Development"] <- "country_development"
 
 summary(suicide_rates)
 ```
