@@ -7,6 +7,14 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+dbscan.outliers <- function(data, ...) {
+  require(fpc, quietly=TRUE)
+  cl <- fpc::dbscan(data, ...)
+  posOuts <- which(cl$cluster == 0)
+  list(positions = posOuts,
+       outliers = data[posOuts,],
+       dbscanResults = cl)
+}
 ```
 
 # Preparing the data
@@ -20,6 +28,7 @@ library(tidyr)
 library(dplyr)
 
 setwd('/home/burak/Documents/MS/CMP713/proj')
+# setwd('D:/enotuniq/academia/3/CMP713 - Data Mining/P/repo/cmp713_DataMiningProject')
 suicide_rates <- read_csv("Suicide Rates (1985-2016).csv")
 suicide_rates <- suicide_rates %>% rename(suicides_per_100k = "suicides/100k pop", HDI_for_year = "HDI for year", 
                          gdp_for_year_dollars = "gdp_for_year ($)", gdp_per_capita_dollars = "gdp_per_capita ($)")
@@ -160,3 +169,69 @@ suicide_rates <- suicide_rates[!is.na(suicide_rates$country_development),]
 summary(suicide_rates)
 ```
 
+## Outlier Detection
+### IQR Approach
+
+- `Year`
+```{r}
+iqr <-IQR(suicide_rates$year)
+lowerq = quantile(suicide_rates$year)[2]
+upperq = quantile(suicide_rates$year)[4]
+mild.threshold.upper = (iqr * 1.5) + upperq
+mild.threshold.lower = lowerq - (iqr * 1.5)
+cat("Lower threshold: ", mild.threshold.lower)
+cat("Upper threshold: ", mild.threshold.upper)
+cat("Min. value: ", min(suicide_rates$year))
+cat("Max. value: ", max(suicide_rates$year))
+```
+
+The rows in our dataset were supposed to be between 1985 and 2016, when we look at the min and max values, we see that there is no problem. IQR thresholds are not fitting our dataset.
+
+
+- `Suicide No`
+```{r}
+iqr <-IQR(suicide_rates$suicides_no)
+lowerq = quantile(suicide_rates$suicides_no)[2]
+upperq = quantile(suicide_rates$suicides_no)[4]
+mild.threshold.upper = (iqr * 1.5) + upperq
+mild.threshold.lower = lowerq - (iqr * 1.5)
+cat("Lower threshold: ", mild.threshold.lower)
+cat("Upper threshold: ", mild.threshold.upper)
+cat("Min. value: ", min(suicide_rates$suicides_no))
+cat("Max. value: ", max(suicide_rates$suicides_no))
+print("Max. value record: ")
+print(suicide_rates[which.max(suicide_rates$suicides_no), 1:5])
+```
+
+The maximum number of suicides seems oddly high. However, when we do a research, we see that the data is not an outlier. "The peak of recorded suicides was in 1994. Russian men, the report said, are six times more likely to commit suicide than women, and the highest risk group among men is 45- to 54-year-olds." IQR thresholds are not fitting our dataset. *(see: https://www.theguardian.com/world/2003/jul/09/russia.nickpatonwalsh)*
+
+
+- `GDP per capita dollars`
+```{r}
+iqr <-IQR(suicide_rates$gdp_per_capita_dollars)
+lowerq = quantile(suicide_rates$gdp_per_capita_dollars)[2]
+upperq = quantile(suicide_rates$gdp_per_capita_dollars)[4]
+mild.threshold.upper = (iqr * 1.5) + upperq
+mild.threshold.lower = lowerq - (iqr * 1.5)
+cat("Lower threshold: ", mild.threshold.lower)
+cat("Upper threshold: ", mild.threshold.upper)
+cat("Min. value: ", min(suicide_rates$gdp_per_capita_dollars))
+cat("Max. value: ", max(suicide_rates$gdp_per_capita_dollars))
+print("Max. value record: ")
+print(suicide_rates[which.max(suicide_rates$gdp_per_capita_dollars), 1])
+print("Min. value record: ")
+print(suicide_rates[which.min(suicide_rates$gdp_per_capita_dollars), 1])
+```
+
+GDP per capita data is also looks good. Albania has the lowest values, Luxembourg has the highest.
+
+### DBSCAN
+
+```{r}
+suicide_rates <- suicide_rates[!(is.na(suicide_rates$country_development)), ]
+outliers <- dbscan.outliers(suicide_rates[ , 5:9], eps=3, scale=TRUE)
+length(outliers$positions)
+```
+
+As expected, the DBSCAN algorithm could not find any outlier in the dataset. 
+As a result, we made sure that we have a clean dataset with no outlier.
