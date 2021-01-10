@@ -455,11 +455,13 @@ suicide_rates &lt;- read_csv(&quot;Suicide Rates (1985-2016).csv&quot;)</code></
 ##  3rd Qu.:0.855   3rd Qu.:2.602e+11    3rd Qu.: 24874                           
 ##  Max.   :0.944   Max.   :1.812e+13    Max.   :126352                           
 ##  NA&#39;s   :19456</code></pre>
-<div id="filling-missing-hdi-columns-using-another-dataset" class="section level2">
-<h2>Filling missing HDI columns using another dataset</h2>
-<p>Since our dataset consists of 24k rows but 2/3 of HDI index columns are missing (~19k rows) we should fill the missing columns using an additional dataset taken from UN Development Programme <em>(see: <a href="http://hdr.undp.org/en/indicators/137506#" class="uri">http://hdr.undp.org/en/indicators/137506#</a>)</em></p>
+</div>
+<div id="data-preprocessing" class="section level1">
+<h1>Data Preprocessing</h1>
+<p>Since our dataset consists of 24k rows but 2/3 of HDI index columns are missing (~19k rows) we should fill the missing columns using an additional dataset taken from UN Development Programme <em>(see: <a href="http://hdr.undp.org/en/indicators/137506#" class="uri">http://hdr.undp.org/en/indicators/137506#</a>)</em> <em>(Also see how HDI calculated: <a href="http://hdr.undp.org/sites/default/files/hdr2018_technical_notes.pdf" class="uri">http://hdr.undp.org/sites/default/files/hdr2018_technical_notes.pdf</a> )</em></p>
 <pre class="r"><code>Human_Development_Index_HDI_ &lt;- read_csv(&quot;Human Development Index (HDI).csv&quot;,
-                                         col_types = cols(X4 = col_skip(), X6 = col_skip(),
+                                           col_types = cols(`1990` = col_double(), `1991` = col_double(), `1992` = col_double(), `1993` = col_double(), `1994` = col_double(), `1995` = col_double(), `1996` = col_double(), `1997` = col_double(), `1998` = col_double(), `1999` = col_double(), `2000` = col_double(), `2001` = col_double(), `2002` = col_double(), `2003` = col_double(), `2004` = col_double(), `2005` = col_double(), `2006` = col_double(), `2007` = col_double(), `2008` = col_double(), `2009` = col_double(), `2010` = col_double(), `2011` = col_double(), `2012` = col_double(), `2013` = col_double(), `2014` = col_double(), `2015` = col_double(), `2016` = col_double(), `2017` = col_double(), `2018` = col_double(), `2019` = col_double(),
+                                                          X4 = col_skip(), X6 = col_skip(),
                                                           X8 = col_skip(), X10 = col_skip(),
                                                           X12 = col_skip(), X14 = col_skip(),
                                                           X16 = col_skip(), X18 = col_skip(),
@@ -475,35 +477,91 @@ suicide_rates &lt;- read_csv(&quot;Suicide Rates (1985-2016).csv&quot;)</code></
                                                           X56 = col_skip(), X58 = col_skip(),
                                                           X60 = col_skip(), X62 = col_skip()), skip = 5)
 
-country_HDI &lt;- Human_Development_Index_HDI_[1:189,]
-world_avg_HDI &lt;- Human_Development_Index_HDI_[190:207,]</code></pre>
+country_HDI &lt;- Human_Development_Index_HDI_[1:189, 2:32]
+development_avg_HDI &lt;- Human_Development_Index_HDI_[191:194, 2:32]
+development_avg_HDI$Country &lt;- as.factor(development_avg_HDI$Country)
+names(development_avg_HDI)[names(development_avg_HDI) == &quot;Country&quot;] &lt;- &quot;development&quot; # rename column
+levels(development_avg_HDI$development) &lt;- c(&quot;high&quot;, &quot;low&quot;, &quot;medium&quot;, &quot;veryHigh&quot;)
+world_avg_HDI &lt;- Human_Development_Index_HDI_[206, 3:32]</code></pre>
+<p>HDIs for each country across the years:</p>
 <pre class="r"><code>print(country_HDI)</code></pre>
-<pre><code>## # A tibble: 189 x 32
-##    `HDI Rank` Country `1990` `1991` `1992` `1993` `1994` `1995` `1996` `1997`
-##         &lt;dbl&gt; &lt;chr&gt;   &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt;  &lt;chr&gt; 
-##  1        169 Afghan… 0.302  0.307  0.316  0.312  0.307  0.331  0.335  0.339 
-##  2         69 Albania 0.650  0.631  0.615  0.618  0.624  0.637  0.646  0.645 
-##  3         91 Algeria 0.572  0.576  0.582  0.586  0.590  0.595  0.602  0.611 
-##  4         36 Andorra ..     ..     ..     ..     ..     ..     ..     ..    
-##  5        148 Angola  ..     ..     ..     ..     ..     ..     ..     ..    
-##  6         78 Antigu… ..     ..     ..     ..     ..     ..     ..     ..    
-##  7         46 Argent… 0.718  0.725  0.730  0.735  0.739  0.741  0.748  0.757 
-##  8         81 Armenia 0.654  0.648  0.618  0.617  0.621  0.627  0.634  0.645 
-##  9          8 Austra… 0.871  0.871  0.873  0.876  0.879  0.888  0.890  0.893 
-## 10         18 Austria 0.803  0.808  0.813  0.817  0.821  0.825  0.829  0.832 
-## # … with 179 more rows, and 22 more variables: `1998` &lt;chr&gt;, `1999` &lt;chr&gt;,
-## #   `2000` &lt;chr&gt;, `2001` &lt;chr&gt;, `2002` &lt;chr&gt;, `2003` &lt;chr&gt;, `2004` &lt;chr&gt;,
-## #   `2005` &lt;chr&gt;, `2006` &lt;chr&gt;, `2007` &lt;chr&gt;, `2008` &lt;chr&gt;, `2009` &lt;chr&gt;,
-## #   `2010` &lt;chr&gt;, `2011` &lt;chr&gt;, `2012` &lt;chr&gt;, `2013` &lt;chr&gt;, `2014` &lt;chr&gt;,
-## #   `2015` &lt;chr&gt;, `2016` &lt;chr&gt;, `2017` &lt;chr&gt;, `2018` &lt;chr&gt;, `2019` &lt;chr&gt;</code></pre>
+<pre><code>## # A tibble: 189 x 31
+##    Country `1990` `1991` `1992` `1993` `1994` `1995` `1996` `1997` `1998` `1999`
+##    &lt;chr&gt;    &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;
+##  1 Afghan…  0.302  0.307  0.316  0.312  0.307  0.331  0.335  0.339  0.344  0.348
+##  2 Albania  0.65   0.631  0.615  0.618  0.624  0.637  0.646  0.645  0.655  0.665
+##  3 Algeria  0.572  0.576  0.582  0.586  0.59   0.595  0.602  0.611  0.621  0.629
+##  4 Andorra NA     NA     NA     NA     NA     NA     NA     NA     NA     NA    
+##  5 Angola  NA     NA     NA     NA     NA     NA     NA     NA     NA      0.391
+##  6 Antigu… NA     NA     NA     NA     NA     NA     NA     NA     NA     NA    
+##  7 Argent…  0.718  0.725  0.73   0.735  0.739  0.741  0.748  0.757  0.763  0.774
+##  8 Armenia  0.654  0.648  0.618  0.617  0.621  0.627  0.634  0.645  0.657  0.664
+##  9 Austra…  0.871  0.871  0.873  0.876  0.879  0.888  0.89   0.893  0.896  0.9  
+## 10 Austria  0.803  0.808  0.813  0.817  0.821  0.825  0.829  0.832  0.837  0.842
+## # … with 179 more rows, and 20 more variables: `2000` &lt;dbl&gt;, `2001` &lt;dbl&gt;,
+## #   `2002` &lt;dbl&gt;, `2003` &lt;dbl&gt;, `2004` &lt;dbl&gt;, `2005` &lt;dbl&gt;, `2006` &lt;dbl&gt;,
+## #   `2007` &lt;dbl&gt;, `2008` &lt;dbl&gt;, `2009` &lt;dbl&gt;, `2010` &lt;dbl&gt;, `2011` &lt;dbl&gt;,
+## #   `2012` &lt;dbl&gt;, `2013` &lt;dbl&gt;, `2014` &lt;dbl&gt;, `2015` &lt;dbl&gt;, `2016` &lt;dbl&gt;,
+## #   `2017` &lt;dbl&gt;, `2018` &lt;dbl&gt;, `2019` &lt;dbl&gt;</code></pre>
+<p>HDI cutoff points for development status across each year:</p>
+<pre class="r"><code>print(development_avg_HDI)</code></pre>
+<pre><code>## # A tibble: 4 x 31
+##   development `1990` `1991` `1992` `1993` `1994` `1995` `1996` `1997` `1998`
+##   &lt;fct&gt;        &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;  &lt;dbl&gt;
+## 1 veryHigh     0.779  0.782  0.78   0.79   0.795  0.799  0.804  0.804  0.813
+## 2 high         0.568  0.573  0.578  0.584  0.588  0.596  0.604  0.61   0.616
+## 3 medium       0.437  0.439  0.445  0.451  0.457  0.464  0.471  0.476  0.484
+## 4 low          0.352  0.353  0.355  0.356  0.356  0.361  0.368  0.373  0.379
+## # … with 21 more variables: `1999` &lt;dbl&gt;, `2000` &lt;dbl&gt;, `2001` &lt;dbl&gt;,
+## #   `2002` &lt;dbl&gt;, `2003` &lt;dbl&gt;, `2004` &lt;dbl&gt;, `2005` &lt;dbl&gt;, `2006` &lt;dbl&gt;,
+## #   `2007` &lt;dbl&gt;, `2008` &lt;dbl&gt;, `2009` &lt;dbl&gt;, `2010` &lt;dbl&gt;, `2011` &lt;dbl&gt;,
+## #   `2012` &lt;dbl&gt;, `2013` &lt;dbl&gt;, `2014` &lt;dbl&gt;, `2015` &lt;dbl&gt;, `2016` &lt;dbl&gt;,
+## #   `2017` &lt;dbl&gt;, `2018` &lt;dbl&gt;, `2019` &lt;dbl&gt;</code></pre>
+</div>
+<div id="generating-country-development-status-column" class="section level1">
+<h1>Generating “Country Development Status” column</h1>
+<p>We are identifying development status of each country for each year.</p>
+<p>Since we observe a constant increase in the Human Development Index all over the world as the years pass, we need a metric to indicate that how much developed a country was in a given year, and how much was the HDI index compared to global average.</p>
+<p>That’s why we use the additional information given by HDI dataset which shows the average HDI values of all countries and continents.</p>
+<p>We label each row with development category (i.e. the development category belongs to a country in a specific year)</p>
+<pre class="r"><code>years &lt;- colnames(country_HDI[, -1])
+country_HDI_development_labels &lt;- country_HDI
+
+# process each year column 
+for(year in years) {
+  tmp_HDIs &lt;- unlist(country_HDI_development_labels[year])
+  tmp_breaks &lt;- development_avg_HDI[3:1, year]
+  #country_HDI_development_labels[year] &lt;- cut(tmp_HDIs, breaks = c(0, tmp_breaks, 1),  labels=development_avg_HDI[, &quot;development&quot;])
+  country_HDI_development_labels[year] &lt;- cut(tmp_HDIs, breaks = c(0, unlist(tmp_breaks), 1), labels = rev(unlist(development_avg_HDI[, &quot;development&quot;])) )
+}
+rm(tmp_HDIs, tmp_breaks, year, years)
+
+country_HDI_development_labels &lt;- gather(country_HDI_development_labels, Year, Development, &quot;1990&quot;:&quot;2019&quot;)
+country_HDI_development_labels$Year &lt;- as.double(country_HDI_development_labels$Year)
+country_HDI_development_labels$Development &lt;- as.factor(country_HDI_development_labels$Development)</code></pre>
+<p>Resulting table</p>
+<pre class="r"><code>print(country_HDI_development_labels)</code></pre>
+<pre><code>## # A tibble: 5,670 x 3
+##    Country              Year Development
+##    &lt;chr&gt;               &lt;dbl&gt; &lt;fct&gt;      
+##  1 Afghanistan          1990 low        
+##  2 Albania              1990 high       
+##  3 Algeria              1990 high       
+##  4 Andorra              1990 &lt;NA&gt;       
+##  5 Angola               1990 &lt;NA&gt;       
+##  6 Antigua and Barbuda  1990 &lt;NA&gt;       
+##  7 Argentina            1990 high       
+##  8 Armenia              1990 high       
+##  9 Australia            1990 veryHigh   
+## 10 Austria              1990 veryHigh   
+## # … with 5,660 more rows</code></pre>
 <p>HDI dataset represents each year as a separate column, we need to convert these columns into separate observations using <code>gather()</code></p>
 <pre class="r"><code>country_HDI_tidy &lt;- gather(country_HDI, Year, HDI, &quot;1990&quot;:&quot;2019&quot;)
 country_HDI_tidy$Year &lt;- as.double(country_HDI_tidy$Year)
-country_HDI_tidy$HDI &lt;- as.double(country_HDI_tidy$HDI)</code></pre>
-<pre><code>## Warning: NAs introduced by coercion</code></pre>
-<pre class="r"><code>country_HDI_tidy &lt;- country_HDI_tidy %&gt;% mutate(Country = ifelse(Country == &quot;Korea (Republic of)&quot;, &quot;Republic of Korea&quot;, Country),
+country_HDI_tidy$HDI &lt;- as.double(country_HDI_tidy$HDI)
+country_HDI_tidy &lt;- country_HDI_tidy %&gt;% mutate(Country = ifelse(Country == &quot;Korea (Republic of)&quot;, &quot;Republic of Korea&quot;, Country),
                                                 Country = ifelse(Country == &quot;Czechia&quot;, &quot;Czech Republic&quot;, Country))
-country_HDI_tidy$`HDI Rank` &lt;- NULL
+
 print(country_HDI_tidy)</code></pre>
 <pre><code>## # A tibble: 5,670 x 3
 ##    Country              Year    HDI
@@ -519,6 +577,25 @@ print(country_HDI_tidy)</code></pre>
 ##  9 Australia            1990  0.871
 ## 10 Austria              1990  0.803
 ## # … with 5,660 more rows</code></pre>
+<p>And we are joining the previously prepared development labels table for each country in each year:</p>
+<pre class="r"><code>country_HDI_tidy &lt;- country_HDI_tidy %&gt;% left_join(country_HDI_development_labels, by = c(&quot;Country&quot;, &quot;Year&quot;))
+print(country_HDI_tidy)</code></pre>
+<pre><code>## # A tibble: 5,670 x 4
+##    Country              Year    HDI Development
+##    &lt;chr&gt;               &lt;dbl&gt;  &lt;dbl&gt; &lt;fct&gt;      
+##  1 Afghanistan          1990  0.302 low        
+##  2 Albania              1990  0.65  high       
+##  3 Algeria              1990  0.572 high       
+##  4 Andorra              1990 NA     &lt;NA&gt;       
+##  5 Angola               1990 NA     &lt;NA&gt;       
+##  6 Antigua and Barbuda  1990 NA     &lt;NA&gt;       
+##  7 Argentina            1990  0.718 high       
+##  8 Armenia              1990  0.654 high       
+##  9 Australia            1990  0.871 veryHigh   
+## 10 Austria              1990  0.803 veryHigh   
+## # … with 5,660 more rows</code></pre>
+<div id="filling-missing-hdi-columns-using-our-separate-hdi-data" class="section level2">
+<h2>Filling missing HDI columns using our separate HDI data</h2>
 <p>Now we can fill in missing NA values of HDI columns, using our tidied HDI dataset. We perform a left-join operation by matching country and year columns, and observe that rows with missing HDI decreased from 19k+ rows to ~4k rows. Also, after filling most of HDI cols, we factorize some categorical columns.</p>
 <pre class="r"><code># join operation and then filling the missing NA values from right table
 suicide_rates &lt;- suicide_rates %&gt;% left_join(country_HDI_tidy, by = c(&quot;country&quot; = &quot;Country&quot;, &quot;year&quot; = &quot;Year&quot;)) %&gt;% mutate(HDI_for_year = ifelse(is.na(HDI_for_year), HDI, HDI_for_year)) %&gt;% select(-HDI)
@@ -529,6 +606,7 @@ suicide_rates$country &lt;- as.factor(suicide_rates$country)
 suicide_rates$sex &lt;- as.factor(suicide_rates$sex)
 suicide_rates$generation &lt;- as.factor(suicide_rates$generation)
 suicide_rates$`country-year` &lt;- NULL
+names(suicide_rates)[names(suicide_rates) == &quot;Development&quot;] &lt;- &quot;country_development&quot;
 
 summary(suicide_rates)</code></pre>
 <pre><code>##         country           year          sex                 age      
@@ -554,6 +632,49 @@ summary(suicide_rates)</code></pre>
 ##  Mean   :4.456e+11    Mean   : 16866         Generation Z   :1470  
 ##  3rd Qu.:2.602e+11    3rd Qu.: 24874         Millenials     :5844  
 ##  Max.   :1.812e+13    Max.   :126352         Silent         :6364  
+##                                                                    
+##  country_development
+##  high    :12808     
+##  low     :    0     
+##  medium  : 2122     
+##  veryHigh: 7024     
+##  NA&#39;s    : 5866     
+##                     
+## </code></pre>
+<p>Since our additional HDI dataset does not cover the years between 1985 and 1990 (inclusive), we are omitting the rows with missing HDI and country_development values.</p>
+<pre class="r"><code>suicide_rates &lt;- suicide_rates[!is.na(suicide_rates$country_development),]
+summary(suicide_rates)</code></pre>
+<pre><code>##         country           year          sex                 age      
+##  Austria    :  322   Min.   :1990   female:10977   15-24 years:3664  
+##  Iceland    :  322   1st Qu.:1998   male  :10977   25-34 years:3664  
+##  Mauritius  :  322   Median :2004                  35-54 years:3664  
+##  Netherlands:  322   Mean   :2003                  5-14 years :3634  
+##  Romania    :  322   3rd Qu.:2010                  55-74 years:3664  
+##  Sweden     :  322   Max.   :2016                  75+ years  :3664  
+##  (Other)    :20022                                                   
+##   suicides_no      population       suicides_per_100k  HDI_for_year   
+##  Min.   :    0   Min.   :     278   Min.   :  0.00    Min.   :0.4830  
+##  1st Qu.:    4   1st Qu.:  141288   1st Qu.:  1.19    1st Qu.:0.7050  
+##  Median :   30   Median :  490213   Median :  6.22    Median :0.7780  
+##  Mean   :  260   Mean   : 1981319   Mean   : 13.13    Mean   :0.7739  
+##  3rd Qu.:  143   3rd Qu.: 1673150   3rd Qu.: 16.87    3rd Qu.:0.8520  
+##  Max.   :22338   Max.   :43805214   Max.   :204.92    Max.   :0.9470  
+##                                                                       
+##  gdp_for_year_dollars gdp_per_capita_dollars           generation  
+##  Min.   :6.310e+07    Min.   :   251         Boomers        :3912  
+##  1st Qu.:1.294e+10    1st Qu.:  3908         G.I. Generation:1426  
+##  Median :6.000e+10    Median : 11062         Generation X   :4742  
+##  Mean   :5.074e+11    Mean   : 18880         Generation Z   :1382  
+##  3rd Qu.:2.990e+11    3rd Qu.: 28572         Millenials     :5252  
+##  Max.   :1.812e+13    Max.   :126352         Silent         :5240  
+##                                                                    
+##  country_development
+##  high    :12808     
+##  low     :    0     
+##  medium  : 2122     
+##  veryHigh: 7024     
+##                     
+##                     
 ## </code></pre>
 </div>
 </div>

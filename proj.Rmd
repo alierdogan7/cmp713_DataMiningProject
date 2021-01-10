@@ -97,10 +97,11 @@ for(year in years) {
   #country_HDI_development_labels[year] <- cut(tmp_HDIs, breaks = c(0, tmp_breaks, 1),  labels=development_avg_HDI[, "development"])
   country_HDI_development_labels[year] <- cut(tmp_HDIs, breaks = c(0, unlist(tmp_breaks), 1), labels = rev(unlist(development_avg_HDI[, "development"])) )
 }
-rm(tmp_HDIs, tmp_breaks. year, years)
+rm(tmp_HDIs, tmp_breaks, year, years)
 
 country_HDI_development_labels <- gather(country_HDI_development_labels, Year, Development, "1990":"2019")
 country_HDI_development_labels$Year <- as.double(country_HDI_development_labels$Year)
+country_HDI_development_labels$Development <- as.factor(country_HDI_development_labels$Development)
 
 ```
 
@@ -152,5 +153,10 @@ names(suicide_rates)[names(suicide_rates) == "Development"] <- "country_developm
 summary(suicide_rates)
 ```
 
+Since our additional HDI dataset does not cover the years between 1985 and 1990 (inclusive), we are omitting the rows with missing HDI and country_development values.
 
+```{r}
+suicide_rates <- suicide_rates[!is.na(suicide_rates$country_development),]
+summary(suicide_rates)
+```
 
