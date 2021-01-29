@@ -20,14 +20,19 @@ dbscan.outliers <- function(data, ...) {
 ```{r}
 africa <- c("Cabo Verde", "Mauritius", "Seychelles", "South Africa")
 oceania <- c("Australia", "New Zealand", "Fiji", "Kiribati")
-america <- c("Antigua and Barbuda",
+north_america <- c(          
+             "Canada",   
+             "United States"
+                  )
+
+latin_america <- c(
+            "Antigua and Barbuda",
              "Argentina",          
              "Aruba",              
              "Bahamas",            
              "Barbados",           
              "Belize",             
              "Brazil",             
-             "Canada",             
              "Chile",              
              "Colombia",
              "Costa Rica",         
@@ -48,73 +53,83 @@ america <- c("Antigua and Barbuda",
              "Saint Lucia",                 
              "Saint Vincent and Grenadines",
              "Suriname",                    
-             "Trinidad and Tobago",         
-             "Uruguay",
-             "United States")
-
-asia <- c("Armenia",   
-          "Azerbaijan", 
-          "Bahrain",    
-          "Cyprus",     
-          "Georgia",    
+             "Trinidad and Tobago",       
+            "Portugal",       
+            "Uruguay"
+             )
+arab_states <- c(
+          "Kuwait",   
           "Israel",
-          "Japan",
-          "Kazakhstan", 
-          "Kuwait",     
-          "Kyrgyzstan", 
-          "Macau",      
-          "Maldives",   
-          "Mongolia",   
-          "Oman",       
-          "Philippines",
+          "Bahrain",    
           "Qatar",
+          "United Arab Emirates",
+          "Oman"     
+)
+
+south_asia <- c(
+          "Philippines",
           "Republic of Korea",   
           "Singapore",           
           "Sri Lanka",           
-          "Thailand",            
+          "Thailand",        
+          "Maldives",   
+          "Japan"
+)
+asia <- c("Armenia",   
+          "Azerbaijan", 
+          "Cyprus",     
+          "Georgia",    
+          "Kazakhstan",   
+          "Kyrgyzstan", 
+          "Macau",      
+          "Mongolia",       
           "Turkmenistan",        
-          "United Arab Emirates",
           "Uzbekistan")
 
-europe <- c("Albania",               
-            "Austria",               
-            "Belarus",               
-            "Belgium",               
+northern_europe <- c (
+            "Denmark",     
+            "Norway",         
+            "Finland",    
+            "Iceland"
+)
+eastern_europe <- c(
+            "Hungary",  
+            "Albania",  
+            "Estonia",     
+            "Poland",                
+            "Serbia",            
+            "Slovakia",          
+            "Slovenia",    
+            "Ukraine",      
+            "Romania",          
+            "Russian Federation",
+            "Latvia",                
+            "Lithuania", 
             "Bosnia and Herzegovina",
             "Bulgaria",              
             "Croatia",               
-            "Czech Republic",        
-            "Denmark",               
-            "Estonia",               
-            "Finland",               
+            "Czech Republic",      
+            "Belarus"    
+)
+europe <- c(             
+            "Austria",                
+            "Belgium",               
             "France",
             "Germany",
-            "Greece",                
-            "Hungary",              
-            "Iceland",
+            "Greece",              
             "Ireland",              
-            "Italy",                 
-            "Latvia",                
-            "Lithuania", 
+            "Italy",              
             "Luxembourg",        
             "Malta",             
             "Montenegro", 
-            "Netherlands",       
-            "Norway",            
-            "Poland",            
-            "Portugal",          
-            "Romania",          
-            "Russian Federation",
-            "San Marino",        
-            "Serbia",            
-            "Slovakia",          
-            "Slovenia",          
+            "Netherlands",              
+            "San Marino",           
             "Spain",             
             "Sweden",           
             "Switzerland",
-            "Turkey",
-            "Ukraine",           
-            "United Kingdom")
+            "Turkey",     
+            "United Kingdom"
+            )
 ```
 
 # Preparing the data
@@ -143,10 +158,16 @@ suicide_rates$Continent = NULL
 suicide_rates <- suicide_rates %>%
   mutate(Continent = case_when(
     is.element(country, africa) ~ "Africa",
-    is.element(country, america) ~ "Americas",
+    is.element(country, latin_america) ~ "Latin America",
+    is.element(country, north_america) ~ "North America",
     is.element(country, asia) ~ "Asia",
     is.element(country, europe) ~ "Europe",
-    is.element(country, oceania) ~ "Oceania"
+    is.element(country, oceania) ~ "Oceania",
+    is.element(country, arab_states) ~ "Arab states",
+    is.element(country, south_asia) ~ "South asia",
+    is.element(country, northern_europe) ~ "North Europe",
+     is.element(country, eastern_europe) ~ "East Europe"
+    
     ))
 suicide_rates$Continent = as.factor(suicide_rates$Continent)
 ```
@@ -358,36 +379,28 @@ As a result, we made sure that we have a clean dataset with no outlier.
 
 ## Discretization
 
-country, sex, age, suicides_per_100k, country_development
-
-Since prices of houses varies from 50k to 7M, we need to have them as discretized for decision tree building. We split them into 5 chunks with equal sizes. And add a new column named as `FiyatAraligi` to mark each row from one of price intervals.
+Also since we will build a classification tree, we also discretize our target variable `suicide_rate_per_100k` by dividing into 5 partitions.
 
 ```{r}
 library(Hmisc)
 chunks <- cut2(suicide_rates$suicides_per_100k, g = 5)
-#chunks <- cut(suicide_rates$suicides_per_100k, breaks = 4)
-#levels(chunks) <- c("0.0-1.20", "1.20-6.23", "6.23-16.88", "16.88-204.92")
+levels(chunks) <- c("0.0-0.66", "0.66-3.85", "3.85-9.35", "9.35-20.82", "20.82-204.92")
 suicide_rates$rate_interval <- chunks
 table(suicide_rates$rate_interval)
 ```
 
-## Some feature modifications
-
-Since too many features increase the complexity of tree, we trimmed down some of columns.
+Since our data includes some continuous data such as `population`, `gdp_per_capita_dollars`,  `HDI_for_year`, `gdp_for_year_dollars` we need to have them categorized in order to use in our model training phase. 
 
 ```{r}
-# data$MustakilMi <- as.factor(data$MustakilMi)
-# data$Manzarali <- data[, "ManzaraDoga"] | data[, "ManzaraGol"] | data[, "ManzaraDeniz"] | data[, "ManzaraBogaz"]
-# data$Manzarali <- as.factor(data$Manzarali)
-# data$YukseklikOrani <- data[, "BulunduguKat"] / data[, "ToplamKat"]
+suicide_rates$population_interval <- cut2(suicide_rates$population, g = 12)
+suicide_rates$gdp_interval <- cut2(suicide_rates$gdp_per_capita_dollars, g = 12)
+suicide_rates$hdi_interval <- cut2(suicide_rates$HDI_for_year, g = 12)
+suicide_rates$country_gdp_interval <- cut2(suicide_rates$gdp_for_year_dollars, g = 12)
 ```
 
 ## Building a decision tree
 
-We are planning to build our tree using this formula:
-`FiyatAraligi ~ MustakilMi  + SalonSayisi +  ToplamOdaSayisi + GercekYas + OrijinalAlan + Isitma + Manzarali + CepheGuney +  YukseklikOrani + BanyoSayisi`
-
-We omitted  `Mahalle` since it contains 377 levels and it disables the algorithm to build a tree fast.
+We separate 70% of data for training and the rest 30% for testing. 
 
 ```{r}
 library(DMwR)
@@ -399,56 +412,68 @@ train_set <- suicide_rates[train_rows,]
 test_set <- suicide_rates[-train_rows,]
 ```
 
+We tried to build our tree using `country` feature however since it includes more than 180 levels, it prevents the tree building process. Hence, we categorized all countries by assigning them regions such as "Eastern Europe", "South Asia", "Arab states" etc. and trained our tree model using regions.
 
 ```{r}
-t1 <- rpartXse( rate_interval ~  sex + age + country_development + generation + year + Continent , se = 0.5, train_set, cp = 0.005,  maxdepth = 20  
-                , model = TRUE)
+t1 <- rpartXse( rate_interval ~  sex + age + country_development + generation + year + Continent + population_interval + gdp_interval, se = 1, train_set, cp = 0.005,  maxdepth = 20, model = TRUE)
 prp(t1, type = 0, extra = 101)
+```
 
+Our single decision tree scores 56% prediction rate.
+
+```{r}
 predicted <- predict(t1, test_set, type = "class")
 table(test_set$rate_interval, predicted)
-error_rate <- sum(predicted != test_set$rate_interval) / nrow(test_set)
 ```
-
 ```{r}
-t2 <- rpartXse( suicides_per_100k ~  sex + age + country_development, se = 0, suicide_rates, cp = 0.005,  maxdepth = 20  
-                , model = TRUE)
-prp(t2, type = 0, extra = 101)
+error_rate <- sum(predicted != test_set$rate_interval) / nrow(test_set)
+error_rate
 ```
 
-```{r eval=FALSE}
-library(adabag)
-bag <- bagging(rate_interval ~  sex + age + country_development, train_set[1:10,], nbagg = 2, coob = TRUE, control = rpart.control(minsplit = 2, cp = 0)) #, maxdepth=1 mfinal = 1
-bag_prediction <- predict(bag, test_set)
-names(bag_prediction)
-bag_prediction$confusion
-error_rate <- sum(bag_prediction != test_set$rate_interval) / nrow(test_set)
-```
-
+We've increased the score of our decision tree to 73% by using Random Forest technique as an ensemble learning method.
 
 ```{r}
 library(randomForest)
-forest <- randomForest(rate_interval ~  sex + age + country_development  + generation +  Continent , train_set, ntree = 200, mtry = 2) # mtry feature subsets
+forest <- randomForest(rate_interval ~ sex + age + country_development  + generation +  Continent + gdp_interval + country_gdp_interval + hdi_interval , train_set, ntree = 200, mtry = 3) # mtry feature subsets
 forest_prediction <- predict(forest, test_set)
+```
+
+```{r}
 table(forest_prediction, test_set$rate_interval)
-error_rate <- sum(forest_prediction != test_set$rate_interval) / nrow(test_set)
 ```
 ```{r}
-library(adabag)
-boosting <- boosting(rate_interval ~ sex , train_set, mfinal = 1)
-boosting_prediction <- predict(boosting, test_set)
-boosting_prediction$confusion
-error_rate <- sum(boosting_prediction != test_set$rate_interval) / nrow(test_set)
+error_rate <- sum(forest_prediction != test_set$rate_interval) / nrow(test_set)
+error_rate
+```
+
+*Comments on the resulting decision tree:*
+
+- We clearly observe that a single decision tree is insufficient when it comes to make accurate predictions (scored 56%). Using "ensemble learning" and strengthening our model with Random Forests enabled us to build more accurate models and our new model scores with 73% which is a nice progress. 
+
+
+
+```{r eval=FALSE}
+# library(adabag)
+# bag <- bagging(rate_interval ~  sex + age + country_development, train_set[1:10,], nbagg = 2, coob = TRUE, control = rpart.control(minsplit = 2, cp = 0)) #, maxdepth=1 mfinal = 1
+# bag_prediction <- predict(bag, test_set)
+# names(bag_prediction)
+# bag_prediction$confusion
+# error_rate <- sum(bag_prediction != test_set$rate_interval) / nrow(test_set)
+```
+
+```{r eval=FALSE}
+# library(adabag)
+# boosting <- boosting(rate_interval ~ sex , train_set, mfinal = 1)
+# boosting_prediction <- predict(boosting, test_set)
+# boosting_prediction$confusion
+# error_rate <- sum(boosting_prediction != test_set$rate_interval) / nrow(test_set)
 ```
 
 
-
-*Comments on the resulting decision tree:*
-- When we observe our tree, we notice 3 columns used for building our tree: `OrijinalAlan`, `ToplamOdaSayisi`, `BanyoSayisi` and `Ilce`. It's reasonable that the first and greater split was made with total square meters of house. And then, the second most significant split is determined with `Ilce` which is very closely linked with the  price of houses. And total room number and number of bathrooms are the last indicators.
 
 
 ### Variable Importance
-```{r}
+```{r eval=FALSE}
 vic <- suicide_rates %>% select(suicides_per_100k,
                     country,
                     year,
@@ -467,7 +492,7 @@ barplot(vi_m, horiz = F, las = 1, col = "#1D91C0",
 
 
 ### Continent Graph
-```{r}
+```{r eval=FALSE}
 continent <- suicide_rates %>%
   group_by(Continent) %>%
   summarize(suicide_per_100k = (sum(as.numeric(suicides_no)) / sum(as.numeric(population))) * 100000) %>%
@@ -487,7 +512,7 @@ continent_plot <- continent_plot + geom_point()
 print(continent_plot)
 ```
 ### Country Graph
-```{r}
+```{r eval=FALSE}
 global_average <- (sum(as.numeric(suicide_rates$suicides_no)) / sum(as.numeric(suicide_rates$population))) * 100000
 country <- suicide_rates %>%
   group_by(country, Continent) %>%
@@ -514,7 +539,7 @@ ggplot(country, aes(x = country, y = suicide_per_100k, fill = Continent)) +
 
 ### Regression with NeuralNets
 
-```{r}
+```{r eval=FALSE}
 sp <- sample(1:nrow(suicide_rates), 21000)
 tr <- suicide_rates[sp,]
 ts <- suicide_rates[-sp,]
@@ -532,7 +557,7 @@ abline(0, 1)
 
 ### Regression with Deep Learning
 
-```{r}
+```{r eval=FALSE}
 suicides_model_nn <- suicide_rates[c("country", "sex", "age", "suicides_per_100k")]
 h2oInstance <- h2o.init(ip = "localhost")
 
