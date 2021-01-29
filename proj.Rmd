@@ -153,6 +153,7 @@ suicide_rates <- suicide_rates %>% left_join(country_HDI_tidy, by = c("country" 
 
 # factorization of some categorical columns
 suicide_rates$age <- as.factor(suicide_rates$age)
+levels(suicide_rates$age) <- c("15-24", "25-34", "35-54", "5-14", "55-74", "75+")
 suicide_rates$country <- as.factor(suicide_rates$country)
 suicide_rates$sex <- as.factor(suicide_rates$sex)
 suicide_rates$generation <- as.factor(suicide_rates$generation)
@@ -227,7 +228,7 @@ GDP per capita data is also looks good. Albania has the lowest values, Luxembour
 
 ### DBSCAN
 
-```{r}
+```{r eval=FALSE}
 suicide_rates <- suicide_rates[!(is.na(suicide_rates$country_development)), ]
 outliers <- dbscan.outliers(suicide_rates[ , 5:9], eps=3, scale=TRUE)
 length(outliers$positions)
@@ -235,3 +236,96 @@ length(outliers$positions)
 
 As expected, the DBSCAN algorithm could not find any outlier in the dataset. 
 As a result, we made sure that we have a clean dataset with no outlier.
+
+
+# Decision Tree
+
+## Discretization
+
+country, sex, age, suicides_per_100k, country_development
+
+Since prices of houses varies from 50k to 7M, we need to have them as discretized for decision tree building. We split them into 5 chunks with equal sizes. And add a new column named as `FiyatAraligi` to mark each row from one of price intervals.
+
+```{r}
+library(Hmisc)
+chunks <- cut2(suicide_rates$suicides_per_100k, g = 5)
+#chunks <- cut(suicide_rates$suicides_per_100k, breaks = 4)
+#levels(chunks) <- c("0.0-1.20", "1.20-6.23", "6.23-16.88", "16.88-204.92")
+suicide_rates$rate_interval <- chunks
+table(suicide_rates$rate_interval)
+```
+
+## Some feature modifications
+
+Since too many features increase the complexity of tree, we trimmed down some of columns.
+
+```{r}
+# data$MustakilMi <- as.factor(data$MustakilMi)
+# data$Manzarali <- data[, "ManzaraDoga"] | data[, "ManzaraGol"] | data[, "ManzaraDeniz"] | data[, "ManzaraBogaz"]
+# data$Manzarali <- as.factor(data$Manzarali)
+# data$YukseklikOrani <- data[, "BulunduguKat"] / data[, "ToplamKat"]
+```
+
+## Building a decision tree
+
+We are planning to build our tree using this formula:
+`FiyatAraligi ~ MustakilMi  + SalonSayisi +  ToplamOdaSayisi + GercekYas + OrijinalAlan + Isitma + Manzarali + CepheGuney +  YukseklikOrani + BanyoSayisi`
+
+We omitted  `Mahalle` since it contains 377 levels and it disables the algorithm to build a tree fast.
+
+```{r}
+library(DMwR)
+library(rpart.plot)
+set.seed(1024)
+
+train_rows <- sample(1:nrow(suicide_rates), nrow(suicide_rates) * 0.7)
+train_set <- suicide_rates[train_rows,]
+test_set <- suicide_rates[-train_rows,]
+```
+
+
+```{r}
+t1 <- rpartXse( suicides_per_100k ~  sex + age + country_development + generation + year , se = 0, train_set, cp = 0.005,  maxdepth = 20  
+                , model = TRUE)
+prp(t1, type = 0, extra = 101)
+
+#predicted <- predict(t1, test_set, type = "class")
+#table(test_set$rate_interval, predicted)
+#error_rate <- sum(predicted != test_set$rate_interval) / nrow(test_set)
+```
+
+```{r}
+t2 <- rpartXse( suicides_per_100k ~  sex + age + country_development, se = 0, suicide_rates, cp = 0.005,  maxdepth = 20  
+                , model = TRUE)
+prp(t2, type = 0, extra = 101)
+```
+
+```{r eval=FALSE}
+library(adabag)
+bag <- bagging(suicides_per_100k ~  sex + age + country_development, train_set[1:10,], nbagg = 2, coob = TRUE, control = rpart.control(minsplit = 2, cp = 0)) #, maxdepth=1 mfinal = 1
+bag_prediction <- predict(bag, test_set)
+names(bag_prediction)
+bag_prediction$confusion
+error_rate <- sum(bag_prediction != test_set$rate_interval) / nrow(test_set)
+```
+
+
+```{r}
+library(randomForest)
+forest <- randomForest(rate_interval ~  sex + age + country_development  + generation + year , train_set, ntree = 50, mtry = 2) # mtry feature subsets
+forest_prediction <- predict(forest, test_set)
+table(forest_prediction, test_set$rate_interval)
+error_rate <- sum(forest_prediction != test_set$rate_interval) / nrow(test_set)
+```
+```{r}
+library(adabag)
+boosting <- boosting(rate_interval ~ sex , train_set, mfinal = 1)
+boosting_prediction <- predict(boosting, test_set)
+boosting_prediction$confusion
+error_rate <- sum(boosting_prediction != test_set$rate_interval) / nrow(test_set)
+```
+
+
+
+*Comments on the resulting decision tree:*
+- When we observe our tree, we notice 3 columns used for building our tree: `OrijinalAlan`, `ToplamOdaSayisi`, `BanyoSayisi` and `Ilce`. It's reasonable that the first and greater split was made with total square meters of house. And then, the second most significant split is determined with `Ilce` which is very closely linked with the  price of houses. And total room number and number of bathrooms are the last indicators.
