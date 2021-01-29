@@ -17,6 +17,106 @@ dbscan.outliers <- function(data, ...) {
 }
 ```
 
+```{r}
+africa <- c("Cabo Verde", "Mauritius", "Seychelles", "South Africa")
+oceania <- c("Australia", "New Zealand", "Fiji", "Kiribati")
+america <- c("Antigua and Barbuda",
+             "Argentina",          
+             "Aruba",              
+             "Bahamas",            
+             "Barbados",           
+             "Belize",             
+             "Brazil",             
+             "Canada",             
+             "Chile",              
+             "Colombia",
+             "Costa Rica",         
+             "Cuba",               
+             "Dominica",           
+             "Ecuador",            
+             "El Salvador",
+             "Grenada",                     
+             "Guatemala",                   
+             "Guyana",                      
+             "Jamaica",                     
+             "Mexico",                      
+             "Nicaragua",                   
+             "Panama",                      
+             "Paraguay",                    
+             "Puerto Rico",                
+             "Saint Kitts and Nevis",       
+             "Saint Lucia",                 
+             "Saint Vincent and Grenadines",
+             "Suriname",                    
+             "Trinidad and Tobago",         
+             "Uruguay",
+             "United States")
+
+asia <- c("Armenia",   
+          "Azerbaijan", 
+          "Bahrain",    
+          "Cyprus",     
+          "Georgia",    
+          "Israel",
+          "Japan",
+          "Kazakhstan", 
+          "Kuwait",     
+          "Kyrgyzstan", 
+          "Macau",      
+          "Maldives",   
+          "Mongolia",   
+          "Oman",       
+          "Philippines",
+          "Qatar",
+          "Republic of Korea",   
+          "Singapore",           
+          "Sri Lanka",           
+          "Thailand",            
+          "Turkmenistan",        
+          "United Arab Emirates",
+          "Uzbekistan")
+
+europe <- c("Albania",               
+            "Austria",               
+            "Belarus",               
+            "Belgium",               
+            "Bosnia and Herzegovina",
+            "Bulgaria",              
+            "Croatia",               
+            "Czech Republic",        
+            "Denmark",               
+            "Estonia",               
+            "Finland",               
+            "France",
+            "Germany",
+            "Greece",                
+            "Hungary",              
+            "Iceland",
+            "Ireland",              
+            "Italy",                 
+            "Latvia",                
+            "Lithuania", 
+            "Luxembourg",        
+            "Malta",             
+            "Montenegro", 
+            "Netherlands",       
+            "Norway",            
+            "Poland",            
+            "Portugal",          
+            "Romania",          
+            "Russian Federation",
+            "San Marino",        
+            "Serbia",            
+            "Slovakia",          
+            "Slovenia",          
+            "Spain",             
+            "Sweden",           
+            "Switzerland",
+            "Turkey",
+            "Ukraine",           
+            "United Kingdom")
+```
+
 # Preparing the data
 
 We load the *Suicide Rates (1985-2016)* data reported by WHO *(see: https://www.kaggle.com/russellyates88/suicide-rates-overview-1985-to-2016)* augmented with some additional columns such as Human Development Index (HDI) and GDP (Gross domestic product) values belonging to that country in that year.
@@ -26,13 +126,29 @@ We load the *Suicide Rates (1985-2016)* data reported by WHO *(see: https://www.
 library(readr)
 library(tidyr)
 library(dplyr)
+library(nnet)
+library(bit64)
+library(h2o)
+library(rpart)
+library(ggplot2)
 
 setwd('/home/burak/Documents/MS/CMP713/proj')
-# setwd('D:/enotuniq/academia/3/CMP713 - Data Mining/P/repo/cmp713_DataMiningProject')
+#setwd('D:/enotuniq/academia/3/CMP713 - Data Mining/P/repo/cmp713_DataMiningProject')
 suicide_rates <- read_csv("Suicide Rates (1985-2016).csv")
 suicide_rates <- suicide_rates %>% rename(suicides_per_100k = "suicides/100k pop", HDI_for_year = "HDI for year", 
                          gdp_for_year_dollars = "gdp_for_year ($)", gdp_per_capita_dollars = "gdp_per_capita ($)")
 
+
+suicide_rates$Continent = NULL
+suicide_rates <- suicide_rates %>%
+  mutate(Continent = case_when(
+    is.element(country, africa) ~ "Africa",
+    is.element(country, america) ~ "Americas",
+    is.element(country, asia) ~ "Asia",
+    is.element(country, europe) ~ "Europe",
+    is.element(country, oceania) ~ "Oceania"
+    ))
+suicide_rates$Continent = as.factor(suicide_rates$Continent)
 ```
 
 ```{r}
@@ -285,13 +401,13 @@ test_set <- suicide_rates[-train_rows,]
 
 
 ```{r}
-t1 <- rpartXse( suicides_per_100k ~  sex + age + country_development + generation + year , se = 0, train_set, cp = 0.005,  maxdepth = 20  
+t1 <- rpartXse( rate_interval ~  sex + age + country_development + generation + year + Continent , se = 0.5, train_set, cp = 0.005,  maxdepth = 20  
                 , model = TRUE)
 prp(t1, type = 0, extra = 101)
 
-#predicted <- predict(t1, test_set, type = "class")
-#table(test_set$rate_interval, predicted)
-#error_rate <- sum(predicted != test_set$rate_interval) / nrow(test_set)
+predicted <- predict(t1, test_set, type = "class")
+table(test_set$rate_interval, predicted)
+error_rate <- sum(predicted != test_set$rate_interval) / nrow(test_set)
 ```
 
 ```{r}
@@ -302,7 +418,7 @@ prp(t2, type = 0, extra = 101)
 
 ```{r eval=FALSE}
 library(adabag)
-bag <- bagging(suicides_per_100k ~  sex + age + country_development, train_set[1:10,], nbagg = 2, coob = TRUE, control = rpart.control(minsplit = 2, cp = 0)) #, maxdepth=1 mfinal = 1
+bag <- bagging(rate_interval ~  sex + age + country_development, train_set[1:10,], nbagg = 2, coob = TRUE, control = rpart.control(minsplit = 2, cp = 0)) #, maxdepth=1 mfinal = 1
 bag_prediction <- predict(bag, test_set)
 names(bag_prediction)
 bag_prediction$confusion
@@ -312,7 +428,7 @@ error_rate <- sum(bag_prediction != test_set$rate_interval) / nrow(test_set)
 
 ```{r}
 library(randomForest)
-forest <- randomForest(rate_interval ~  sex + age + country_development  + generation + year , train_set, ntree = 50, mtry = 2) # mtry feature subsets
+forest <- randomForest(rate_interval ~  sex + age + country_development  + generation +  Continent , train_set, ntree = 200, mtry = 2) # mtry feature subsets
 forest_prediction <- predict(forest, test_set)
 table(forest_prediction, test_set$rate_interval)
 error_rate <- sum(forest_prediction != test_set$rate_interval) / nrow(test_set)
@@ -329,3 +445,105 @@ error_rate <- sum(boosting_prediction != test_set$rate_interval) / nrow(test_set
 
 *Comments on the resulting decision tree:*
 - When we observe our tree, we notice 3 columns used for building our tree: `OrijinalAlan`, `ToplamOdaSayisi`, `BanyoSayisi` and `Ilce`. It's reasonable that the first and greater split was made with total square meters of house. And then, the second most significant split is determined with `Ilce` which is very closely linked with the  price of houses. And total room number and number of bathrooms are the last indicators.
+
+
+### Variable Importance
+```{r}
+vic <- suicide_rates %>% select(suicides_per_100k,
+                    country,
+                    year,
+                    sex ,          
+                    age,
+                    population,
+                    HDI_for_year,
+                    gdp_per_capita_dollars) 
+
+fit_m <- rpart(suicides_per_100k ~ ., data = vic)
+vi_m <- fit_m$variable.importance;
+barplot(vi_m, horiz = F, las = 1, col = "#1D91C0", 
+        main = "Variable importance - Suicides per 100k", cex.names=.7)
+```
+
+
+
+### Continent Graph
+```{r}
+continent <- suicide_rates %>%
+  group_by(Continent) %>%
+  summarize(suicide_per_100k = (sum(as.numeric(suicides_no)) / sum(as.numeric(population))) * 100000) %>%
+  arrange(suicide_per_100k)
+
+continent$continent <- factor(continent$Continent, ordered = T, levels = continent$Continent)
+
+continent_plot <- ggplot(continent, aes(x = continent, y = suicide_per_100k, fill = continent)) + 
+  geom_bar(stat = "identity") + 
+  labs(title = "Global Suicides (per 100k), by Continent",
+  x = "Continent", 
+  y = "Suicides per 100k", 
+  fill = "Continent") +
+  theme(legend.position = "none", title = element_text(size = 10)) + 
+  scale_y_continuous(breaks = seq(0, 20, 1), minor_breaks = F)
+continent_plot <- continent_plot + geom_point()
+print(continent_plot)
+```
+### Country Graph
+```{r}
+global_average <- (sum(as.numeric(suicide_rates$suicides_no)) / sum(as.numeric(suicide_rates$population))) * 100000
+country <- suicide_rates %>%
+  group_by(country, Continent) %>%
+  summarize(n = n(), 
+            suicide_per_100k = (sum(as.numeric(suicides_no)) / sum(as.numeric(population))) * 100000) %>%
+  arrange(desc(suicide_per_100k))
+
+country$country <- factor(country$country, 
+                          ordered = T, 
+                          levels = rev(country$country))
+
+ggplot(country, aes(x = country, y = suicide_per_100k, fill = Continent)) + 
+  geom_bar(stat = "identity") + 
+  geom_hline(yintercept = global_average, linetype = 2, color = "grey35", size = 1) +
+  labs(title = "Global suicides per 100k, by Country",
+       x = "Country", 
+       y = "Suicides per 100k", 
+       fill = "Continent") +
+  coord_flip() +
+  scale_y_continuous(breaks = seq(0, 45, 2)) + 
+  theme(legend.position = "bottom")
+```
+
+
+### Regression with NeuralNets
+
+```{r}
+sp <- sample(1:nrow(suicide_rates), 21000)
+tr <- suicide_rates[sp,]
+ts <- suicide_rates[-sp,]
+nr <- nnet(suicides_per_100k ~ country + sex + age, tr,
+           linout=TRUE,
+           trace=FALSE,
+           size=8,
+           decay=0.01,
+           maxit=2000)
+psnr <- predict(nr, ts)
+mean(abs(psnr-ts$suicides_per_100k))
+plot(ts$suicides_per_100k, psnr)
+abline(0, 1)
+```
+
+### Regression with Deep Learning
+
+```{r}
+suicides_model_nn <- suicide_rates[c("country", "sex", "age", "suicides_per_100k")]
+h2oInstance <- h2o.init(ip = "localhost")
+
+trH <- as.h2o(suicides_model_nn[sp, ],"trH")
+tsH <- as.h2o(suicides_model_nn[-sp, ],"tsH")
+mdl <- h2o.deeplearning(x=1:3, y=4, training_frame=trH,
+hidden = c(100, 100, 100, 100), epochs = 500)
+preds <- as.vector(h2o.predict(mdl,tsH))
+mean(abs(preds - as.vector(tsH$suicides_per_100k)))
+plot(as.vector(tsH$suicides_per_100k), preds)
+abline(0, 1)
+```
+
+
